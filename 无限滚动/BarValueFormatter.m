@@ -2,6 +2,9 @@
 //  BarValueFormatter.m
 //  无限滚动
 //
+//  Created by 牛虎 on 2017/10/24.
+//  Copyright © 2017年 admin. All rights reserved.
+//
 
 #import "BarValueFormatter.h"
 

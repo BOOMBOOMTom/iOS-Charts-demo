@@ -1,5 +1,9 @@
 //
 //  ViewController.m
+//  无限滚动
+//
+//  Created by caoting on 15/11/10.
+//  Copyright © 2015年 admin. All rights reserved.
 //
 
 #import "ViewController.h"
@@ -12,11 +16,14 @@
 
 @import Charts;
 @interface ViewController ()<ChartViewDelegate>
-@property (nonatomic,strong) LineChartView * lineView;
-@property (nonatomic,strong) BarChartView * barView;
-@property (nonatomic,strong) PieChartView * pieView;
-@property (nonatomic,strong) RadarChartView * radarView;
-@property (nonatomic,strong) UILabel * markY;
+@property (nonatomic) LineChartView * lineView;
+@property (nonatomic) BarChartView * barView;
+@property (nonatomic) PieChartView * pieView;
+@property (nonatomic) RadarChartView * radarView;
+@property (nonatomic) ScatterChartView *scatterView;
+@property (nonatomic) BubbleChartView *bubbleView;
+@property (nonatomic) HorizontalBarChartView *chartView;
+@property (nonatomic) UILabel * markY;
 @end
 
 
@@ -25,12 +32,15 @@
 - (void)viewDidLoad {
     [super viewDidLoad];
     UIScrollView *sv = [[UIScrollView alloc]initWithFrame:CGRectMake(0, 0, screenWidth, screenHeight)];
-    sv.contentSize = CGSizeMake(0, 1400);
+    sv.contentSize = CGSizeMake(0, 3000);
     sv.backgroundColor = [UIColor whiteColor];
     [self.view addSubview:sv];
     
     UIButton *button = [[UIButton alloc]initWithFrame:CGRectMake(0, 0, 100, 20)];
     button.backgroundColor = [UIColor redColor];
+    [button setTitle:@"赋值刷新数据" forState:UIControlStateNormal];
+    [button setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
+    [button sizeToFit];
     [button addTarget:self action:@selector(changeUpdate) forControlEvents:UIControlEventTouchUpInside];
     [sv addSubview:button];
     
@@ -47,11 +57,23 @@
     [sv addSubview:self.radarView];
     self.radarView.data = [self setRadarData];
     [self.radarView renderer];
+    //散点图
+    [sv addSubview:self.scatterView];
+    self.scatterView.data = [self setScatterData];
+    //气泡图
+    [sv addSubview:self.bubbleView];
+    self.bubbleView.data = [self setBubbleData];
+    //横向柱状图
+    [sv addSubview:self.chartView];
+    self.chartView.data = [self sethBarData];
+    //折线+柱状图
+    
 }
 
 - (void)changeUpdate{
     self.lineView.data = [self setData];
     [self.lineView animateWithYAxisDuration:2.0];
+    [self.lineView notifyDataSetChanged];
 }
 
 - (UILabel *)markY{
@@ -64,91 +86,6 @@
         _markY.backgroundColor = [UIColor grayColor];
     }
     return _markY;
-}
-
-#pragma mark 柱状图
-- (BarChartView *)barView{
-    
-    if (!_barView) {
-        _barView = [[BarChartView alloc] initWithFrame:CGRectMake(0, 400, screenWidth, 300)];
-        _barView.delegate = self;
-        _barView.chartDescription.enabled = NO; //------
-        _barView.legend.enabled = NO; //-------
-        _barView.noDataText = @"暂无数据";//没有数据时的文字提示
-        _barView.drawValueAboveBarEnabled = YES;//数值显示在柱形的上面还是下面
-        _barView.drawBarShadowEnabled = NO;//是否绘制柱形的阴影背景
-        
-        //交互设置
-        _barView.scaleYEnabled = NO;//取消Y轴缩放
-        _barView.doubleTapToZoomEnabled = NO;//取消双击缩放
-        _barView.dragEnabled = YES;//启用拖拽图表
-        _barView.dragDecelerationEnabled = YES;//拖拽后是否有惯性效果
-        _barView.dragDecelerationFrictionCoef = 0.9;//拖拽后惯性效果的摩擦系数(0~1)，数值越小，惯性越不明显
-        
-        //X轴样式
-        ChartXAxis *xAxis = _barView.xAxis;
-        xAxis.axisLineWidth = 1;//设置X轴线宽
-        xAxis.granularityEnabled = YES;//设置重复的值不显示
-        xAxis.labelCount = 10; //labeld 的个数
-        xAxis.labelPosition = XAxisLabelPositionBottom;//X轴的显示位置，默认是显示在上面的
-        xAxis.drawGridLinesEnabled = NO;//不绘制网格线
-        xAxis.labelTextColor = [UIColor brownColor];//label文字颜色
-        xAxis.axisMinimum = 0;//X轴最小值从5开始
-     //   xAxis.granularity = 5; //间隔尺寸
-        
-        //Y轴样式
-        _barView.rightAxis.enabled = NO;//不绘制右边轴
-        ChartYAxis *leftAxis = _barView.leftAxis;//获取左边Y轴
-        leftAxis.labelCount = 5;//Y轴label数量，数值不一定，如果forceLabelsEnabled等于YES, 则强制绘制制定数量的label, 但是可能不平均
-        leftAxis.forceLabelsEnabled = NO;//不强制绘制制定数量的label
-    //    leftAxis.axisMinValue = 0;//设置Y轴的最小值
-   //     leftAxis.axisMaxValue = 105;//设置Y轴的最大值
-        leftAxis.inverted = NO;//是否将Y轴进行上下翻转
-        leftAxis.axisLineWidth = 0.5;//Y轴线宽
-        leftAxis.axisMinimum = 0; //Y轴最小值从原点开始
-        leftAxis.axisLineColor = [UIColor blackColor];//Y轴颜色
-        leftAxis.valueFormatter = [[SymbolsValueFormatter alloc] init];//自定义格式
-        leftAxis.labelPosition = YAxisLabelPositionOutsideChart;//label位置
-        leftAxis.labelTextColor = [UIColor brownColor];//文字颜色
-        leftAxis.labelFont = [UIFont systemFontOfSize:10.0f];//文字字体
-        
-        //设置动画效果，可以设置X轴和Y轴的动画效果
-        [_barView animateWithYAxisDuration:2.0f];
-    }
-    return _barView;
-}
-- (BarChartData *)setBarData{ 
-    
-    NSInteger xVals_count = 20;//X轴上要显示多少条数据
-    //X轴上面需要显示的数据
-    NSMutableArray *xVals = [[NSMutableArray alloc] init];
-    
-    for (int i = 1; i <= xVals_count; i++) {
-        if (i<10) {
-            [xVals addObject: [NSString stringWithFormat:@"02-%d",i]];
-        }else{
-            [xVals addObject: [NSString stringWithFormat:@"03-%d",i-19]];
-        }
-    }
-    _barView.xAxis.valueFormatter = [[DateValueFormatter alloc]initWithArr:xVals];
-    //对应Y轴上面需要显示的数据
-    NSMutableArray *yVals = [[NSMutableArray alloc] init];
-    for (int i = 0; i < xVals_count; i++) {
-        int a = arc4random() % 100;
-        BarChartDataEntry *entry = [[BarChartDataEntry alloc] initWithX:i y:a];
-        [yVals addObject:entry];
-    }
-    
-    BarChartDataSet *set = [[BarChartDataSet alloc]initWithValues:yVals label:nil];
-    set.valueFormatter = [BarValueFormatter new];
-//    [set setColor:[UIColor orangeColor]];
-    set.colors = @[[UIColor greenColor],[UIColor orangeColor],[UIColor blueColor],[UIColor grayColor],[UIColor yellowColor]];
-    [_barView zoomWithScaleX:0 scaleY:0 x:0 y:0];
-    BarChartData *data = [[BarChartData alloc]initWithDataSet:set];
-    
-    [data setValueFont:[UIFont fontWithName:@"HelveticaNeue-Light" size:11.f]];//文字字体
-    [data setValueTextColor:[UIColor blackColor]];//文字颜色
-    return data;
 }
 
 #pragma mark 折线图
@@ -212,9 +149,9 @@
     
     for (int i = 1; i <= xVals_count; i++) {
         if (i<30) {
-        [xVals addObject: [NSString stringWithFormat:@"02-%d",i]];
+            [xVals addObject: [NSString stringWithFormat:@"02-%d",i]];
         }else{
-        [xVals addObject: [NSString stringWithFormat:@"03-%d",i-29]];
+            [xVals addObject: [NSString stringWithFormat:@"03-%d",i-29]];
         }
     }
     _lineView.xAxis.valueFormatter = [[DateValueFormatter alloc]initWithArr:xVals];
@@ -250,7 +187,7 @@
         //折线拐点样式
         set1.drawCirclesEnabled = NO;//是否绘制拐点
         set1.drawFilledEnabled = NO;//是否填充颜色
-
+        
         //将 LineChartDataSet 对象放入数组中
         NSMutableArray *dataSets = [[NSMutableArray alloc] init];
         [dataSets addObject:set1];
@@ -279,6 +216,91 @@
         return data;
     }
     
+}
+
+#pragma mark 柱状图
+- (BarChartView *)barView{
+    
+    if (!_barView) {
+        _barView = [[BarChartView alloc] initWithFrame:CGRectMake(0, 400, screenWidth, 300)];
+        _barView.delegate = self;
+        _barView.chartDescription.enabled = NO; //------
+        _barView.legend.enabled = NO; //-------
+        _barView.noDataText = @"暂无数据";//没有数据时的文字提示
+        _barView.drawValueAboveBarEnabled = YES;//数值显示在柱形的上面还是下面
+        _barView.drawBarShadowEnabled = NO;//是否绘制柱形的阴影背景
+        
+        //交互设置
+        _barView.scaleYEnabled = NO;//取消Y轴缩放
+        _barView.doubleTapToZoomEnabled = NO;//取消双击缩放
+        _barView.dragEnabled = YES;//启用拖拽图表
+        _barView.dragDecelerationEnabled = YES;//拖拽后是否有惯性效果
+        _barView.dragDecelerationFrictionCoef = 0.9;//拖拽后惯性效果的摩擦系数(0~1)，数值越小，惯性越不明显
+        
+        //X轴样式
+        ChartXAxis *xAxis = _barView.xAxis;
+        xAxis.axisLineWidth = 1;//设置X轴线宽
+        xAxis.granularityEnabled = YES;//设置重复的值不显示
+        xAxis.labelCount = 10; //labeld 的个数
+        xAxis.labelPosition = XAxisLabelPositionBottom;//X轴的显示位置，默认是显示在上面的
+        xAxis.drawGridLinesEnabled = NO;//不绘制网格线
+        xAxis.labelTextColor = [UIColor brownColor];//label文字颜色
+        xAxis.axisMinimum = 0.5;//X轴最小值从5开始
+     //   xAxis.granularity = 5; //间隔尺寸
+        
+        //Y轴样式
+        _barView.rightAxis.enabled = NO;//不绘制右边轴
+        ChartYAxis *leftAxis = _barView.leftAxis;//获取左边Y轴
+        leftAxis.labelCount = 5;//Y轴label数量，数值不一定，如果forceLabelsEnabled等于YES, 则强制绘制制定数量的label, 但是可能不平均
+        leftAxis.forceLabelsEnabled = NO;//不强制绘制制定数量的label
+    //    leftAxis.axisMinValue = 0;//设置Y轴的最小值
+   //     leftAxis.axisMaxValue = 105;//设置Y轴的最大值
+        leftAxis.inverted = NO;//是否将Y轴进行上下翻转
+        leftAxis.axisLineWidth = 0.5;//Y轴线宽
+        leftAxis.axisMinimum = 0; //Y轴最小值从原点开始
+        leftAxis.axisLineColor = [UIColor blackColor];//Y轴颜色
+        leftAxis.valueFormatter = [[SymbolsValueFormatter alloc] init];//自定义格式
+        leftAxis.labelPosition = YAxisLabelPositionOutsideChart;//label位置
+        leftAxis.labelTextColor = [UIColor brownColor];//文字颜色
+        leftAxis.labelFont = [UIFont systemFontOfSize:10.0f];//文字字体
+        
+        //设置动画效果，可以设置X轴和Y轴的动画效果
+        [_barView animateWithYAxisDuration:2.0f];
+    }
+    return _barView;
+}
+- (BarChartData *)setBarData{ 
+    
+    NSInteger xVals_count = 20;//X轴上要显示多少条数据
+    //X轴上面需要显示的数据
+    NSMutableArray *xVals = [[NSMutableArray alloc] init];
+    
+    for (int i = 1; i <= xVals_count; i++) {
+        if (i<10) {
+            [xVals addObject: [NSString stringWithFormat:@"02-%d",i]];
+        }else{
+            [xVals addObject: [NSString stringWithFormat:@"03-%d",i-19]];
+        }
+    }
+    _barView.xAxis.valueFormatter = [[DateValueFormatter alloc]initWithArr:xVals];
+    //对应Y轴上面需要显示的数据
+    NSMutableArray *yVals = [[NSMutableArray alloc] init];
+    for (int i = 0; i < xVals_count; i++) {
+        int a = arc4random() % 100;
+        BarChartDataEntry *entry = [[BarChartDataEntry alloc] initWithX:i y:a];
+        [yVals addObject:entry];
+    }
+    
+    BarChartDataSet *set = [[BarChartDataSet alloc]initWithValues:yVals label:nil];
+    set.valueFormatter = [BarValueFormatter new];
+//    [set setColor:[UIColor orangeColor]];
+    set.colors = @[[UIColor greenColor],[UIColor orangeColor],[UIColor blueColor],[UIColor grayColor],[UIColor yellowColor]];
+    [_barView zoomWithScaleX:0 scaleY:0 x:0 y:0];
+    BarChartData *data = [[BarChartData alloc]initWithDataSet:set];
+    
+    [data setValueFont:[UIFont fontWithName:@"HelveticaNeue-Light" size:11.f]];//文字字体
+    [data setValueTextColor:[UIColor blackColor]];//文字颜色
+    return data;
 }
 
 #pragma mark 饼状图
@@ -339,7 +361,7 @@
     }
     NSMutableArray *pieEn = [NSMutableArray array];
     for (int i = 0; i < xVals.count; i ++) {
-        PieChartDataEntry *entry = [[PieChartDataEntry alloc]initWithValue:[xVals[i] doubleValue] label:@""];
+        PieChartDataEntry *entry = [[PieChartDataEntry alloc]initWithValue:[xVals[i] doubleValue] label:@"name"];
         [pieEn addObject:entry];
     }
     
@@ -403,6 +425,7 @@
         
         //设置动画
         [_radarView animateWithYAxisDuration:0.1f];
+        _radarView.extraTopOffset = 20;
         
     }
     return _radarView;
@@ -436,6 +459,235 @@
     return data;
 }
 
+#pragma mark 散点图
+- (ScatterChartView *)scatterView {
+    if (!_scatterView) {
+        _scatterView = [[ScatterChartView alloc] initWithFrame:CGRectMake(0, 1400, screenWidth, 300)];
+        _scatterView.delegate = self;
+        _scatterView.chartDescription.enabled = NO;
+        _scatterView.legend.enabled = NO;
+        _scatterView.noDataText = @""; //没有数据时的文字提示
+        
+        //交互设置
+        _scatterView.scaleYEnabled = NO; //取消Y轴缩放
+        _scatterView.doubleTapToZoomEnabled = NO; //取消双击缩放
+        _scatterView.dragEnabled = YES; //启用拖拽图表
+        _scatterView.dragDecelerationEnabled = YES; //拖拽后是否有惯性效果
+        _scatterView.dragDecelerationFrictionCoef = 0.9; //拖拽后惯性效果的摩擦系数(0~1)，数值越小，惯性越不明显
+        
+        //X轴样式
+        ChartXAxis *xAxis = _scatterView.xAxis;
+        xAxis.axisLineWidth = 1; //设置X轴线宽
+        xAxis.granularityEnabled = YES; //设置重复的值不显示
+        //xAxis.labelCount = 5; //labeld 的个数
+        xAxis.labelPosition = XAxisLabelPositionBottom; //X轴的显示位置，默认是显示在上面的
+        xAxis.drawGridLinesEnabled = YES; //不绘制网格线
+        xAxis.labelFont = [UIFont systemFontOfSize:8.0];
+        //xAxis.axisMinimum = 0;//X轴最小值从5开始
+        //xAxis.granularity = 5; //间隔尺寸
+        
+        //Y轴样式
+        _scatterView.rightAxis.enabled = NO; //不绘制右边轴
+        ChartYAxis *leftAxis = _scatterView.leftAxis; //获取左边Y轴
+        leftAxis.labelCount = 5; //Y轴label数量，数值不一定，如果forceLabelsEnabled等于YES, 则强制绘制制定数量的label, 但是可能不平均
+        leftAxis.forceLabelsEnabled = NO; //不强制绘制制定数量的label
+        //leftAxis.axisMinValue = 0;//设置Y轴的最小值
+        //leftAxis.axisMaxValue = 105;//设置Y轴的最大值
+        leftAxis.inverted = NO; //是否将Y轴进行上下翻转
+        leftAxis.axisLineWidth = 0.5; //Y轴线宽
+        leftAxis.axisMinimum = 0; //Y轴最小值从原点开始
+
+        leftAxis.valueFormatter = [BarValueFormatter new]; //自定义格式
+        leftAxis.labelPosition = YAxisLabelPositionOutsideChart; //label位置
+        leftAxis.labelFont = [UIFont systemFontOfSize:10.0f]; //文字字体
+        
+        //设置动画效果，可以设置X轴和Y轴的动画效果
+        [_scatterView animateWithYAxisDuration:1.0f];
+    }
+    return _scatterView;
+}
+- (ScatterChartData *)setScatterData {
+    NSInteger xVals_count = 20; //X轴上要显示多少条数据
+    //X轴上面需要显示的数据
+    NSMutableArray *xVals = [[NSMutableArray alloc] init];
+    
+    for (int i = 0; i < xVals_count; i++) {
+        [xVals addObject:[NSString stringWithFormat:@"咪咕大观"]];
+    }
+    _scatterView.xAxis.valueFormatter = [BarValueFormatter new];
+    //对应Y轴上面需要显示的数据
+    NSMutableArray *yVals = [[NSMutableArray alloc] init];
+    for (int i = 0; i < xVals_count; i++) {
+        int a = arc4random() % 100;
+        ChartDataEntry *entry = [[ChartDataEntry alloc] initWithX:i y:a];
+        [yVals addObject:entry];
+    }
+    
+    ScatterChartDataSet *set = [[ScatterChartDataSet alloc] initWithValues:yVals label:nil];
+    [set setScatterShape:ScatterShapeCircle];
+    set.valueFormatter = [BarValueFormatter new];
+    
+    //    set.scatterShapeSize = 20;
+    
+    set.colors = @[[UIColor orangeColor]];
+    [_scatterView zoomWithScaleX:0 scaleY:0 x:0 y:0];
+    
+    
+    ScatterChartData *data = [[ScatterChartData alloc] initWithDataSet:set];
+    [data setValueFont:[UIFont fontWithName:@"HelveticaNeue-Light" size:11.f]]; //文字字体
+    // [data setValueTextColor:[UIColor blackColor]];//文字颜色
+    return data;
+}
+#pragma mark 气泡图
+- (BubbleChartView *)bubbleView {
+    if (!_bubbleView) {
+        _bubbleView = [[BubbleChartView alloc] initWithFrame:CGRectMake(0, 1730, screenWidth, 300)];
+        _bubbleView.delegate = self;
+        _bubbleView.chartDescription.enabled = NO;
+        _bubbleView.legend.enabled = YES;
+        _bubbleView.noDataText = @""; //没有数据时的文字提示
+        _bubbleView.highlightPerTapEnabled = NO;
+        _bubbleView.highlightPerDragEnabled = NO;
+        
+        //交互设置
+        _bubbleView.scaleYEnabled = YES; //取消Y轴缩放
+        _bubbleView.scaleXEnabled = YES;
+        _bubbleView.doubleTapToZoomEnabled = NO; //取消双击缩放
+        _bubbleView.dragEnabled = NO; //启用拖拽图表
+        _bubbleView.dragDecelerationEnabled = YES; //拖拽后是否有惯性效果
+        _bubbleView.dragDecelerationFrictionCoef = 0.9; //拖拽后惯性效果的摩擦系数(0~1)，数值越小，惯性越不明显
+        
+        //X轴样式
+        ChartXAxis *xAxis = _bubbleView.xAxis;
+        xAxis.axisLineWidth = 1; //设置X轴线宽
+        xAxis.axisMinimum = 0.5;
+        xAxis.granularityEnabled = YES; //设置重复的值不显示
+        xAxis.granularity = 1;
+        //xAxis.labelCount = 5; //labeld 的个数
+        xAxis.labelPosition = XAxisLabelPositionBottom; //X轴的显示位置，默认是显示在上面的
+        xAxis.drawGridLinesEnabled = YES; //绘制网格线
+        xAxis.valueFormatter = [BarValueFormatter new];;
+        xAxis.labelFont = [UIFont systemFontOfSize:10.0];
+        //xAxis.lee_theme.LeeConfigSelectorAndIdentifier(@selector(setLabelTextColor:), common_font_color_8);
+        [xAxis setLabelTextColor:[UIColor grayColor]];
+
+        //Y轴样式
+        _bubbleView.rightAxis.enabled = NO; //不绘制右边轴
+        ChartYAxis *leftAxis = _bubbleView.leftAxis; //获取左边Y轴
+        //leftAxis.labelCount = 5;//Y轴label数量，数值不一定，如果forceLabelsEnabled等于YES, 则强制绘制制定数量的label, 但是可能不平均
+        leftAxis.forceLabelsEnabled = NO; //不强制绘制制定数量的label
+        //leftAxis.axisMinValue = 0;//设置Y轴的最小值
+        //leftAxis.axisMaxValue = 105;//设置Y轴的最大值
+        leftAxis.inverted = NO; //是否将Y轴进行上下翻转
+        leftAxis.axisLineWidth = 0.5; //Y轴线宽
+        leftAxis.axisMinimum = 0.5; //Y轴最小值从原点开始
+        //leftAxis.
+        //leftAxis.lee_theme.LeeConfigSelectorAndIdentifier(@selector(setLabelTextColor:), common_font_color_8);
+        [leftAxis setLabelTextColor:[UIColor grayColor]];
+        
+        leftAxis.valueFormatter = [BarValueFormatter new];; //自定义格式
+        leftAxis.labelPosition = YAxisLabelPositionOutsideChart; //label位置
+        leftAxis.labelFont = [UIFont systemFontOfSize:10.0f]; //文字字体
+        leftAxis.granularity = 1;
+        
+        //设置动画效果，可以设置X轴和Y轴的动画效果
+        [_bubbleView animateWithYAxisDuration:1.0f];
+    }
+    return _bubbleView;
+}
+- (BubbleChartData *)setBubbleData {
+    
+    //对应Y轴上面需要显示的数据
+    NSMutableArray *yVals = [[NSMutableArray alloc] init];
+    for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < 5; j++) {
+            BubbleChartDataEntry *entry = [[BubbleChartDataEntry alloc] initWithX:i  y:j  size:arc4random()%5];
+            [yVals addObject:entry];
+        }
+    }
+    BubbleChartDataSet *set = [[BubbleChartDataSet alloc] initWithValues:yVals label:@"说明"];
+    set.valueFormatter = [BarValueFormatter new];;
+    set.colors = @[[UIColor orangeColor]];
+    
+    BubbleChartData *data = [[BubbleChartData alloc] initWithDataSet:set];
+    [data setValueTextColor:[UIColor whiteColor]];
+    [data setValueFont:[UIFont fontWithName:@"HelveticaNeue-Light" size:10.f]]; //文字字体
+    
+    return data;
+}
+#pragma mark 横向柱状图
+- (HorizontalBarChartView *)chartView {
+    if (!_chartView) {
+        _chartView = [[HorizontalBarChartView alloc] initWithFrame:CGRectMake(0, 2100, screenWidth, 300)];
+        _chartView.chartDescription.enabled = NO;
+        _chartView.drawGridBackgroundEnabled = NO;
+        [_chartView setScaleEnabled:YES];
+        _chartView.pinchZoomEnabled = YES;
+        _chartView.delegate = self;
+        _chartView.noDataText = @"";
+        _chartView.legend.enabled = YES;
+        _chartView.highlightPerDragEnabled = NO;
+        _chartView.highlightPerTapEnabled = YES;
+        _chartView.legend.position = ChartLegendPositionBelowChartCenter;
+        
+        _chartView.scaleYEnabled = NO; //取消Y轴缩放
+        _chartView.doubleTapToZoomEnabled = NO; //取消双击缩放
+        _chartView.dragEnabled = YES; //启用拖拽图表
+        _chartView.dragDecelerationEnabled = YES; //拖拽后是否有惯性效果
+        _chartView.dragDecelerationFrictionCoef = 0.9; //拖拽后惯性效果的摩擦系数(0~1)，数值越小，惯性越不明显
+        
+        _chartView.xAxis.labelPosition = XAxisLabelPositionBottom;
+        _chartView.xAxis.labelFont = [UIFont systemFontOfSize:10.f];
+        _chartView.xAxis.drawAxisLineEnabled = YES;
+        _chartView.xAxis.drawGridLinesEnabled = NO;
+        _chartView.xAxis.granularity = 1.0;
+        _chartView.xAxis.valueFormatter = [BarValueFormatter new];
+        //        _chartView.xAxis.lee_theme.LeeConfigSelectorAndIdentifier(@selector(setLabelTextColor:), common_font_color_8);
+        [_chartView.xAxis setLabelTextColor:[UIColor grayColor]];
+
+        
+        _chartView.leftAxis.enabled = NO;
+        _chartView.leftAxis.drawAxisLineEnabled = NO;
+        _chartView.leftAxis.drawGridLinesEnabled = NO;
+        
+        _chartView.rightAxis.enabled = YES;
+        _chartView.rightAxis.labelFont = [UIFont systemFontOfSize:10.f];
+        _chartView.rightAxis.drawAxisLineEnabled = YES;
+        _chartView.rightAxis.drawGridLinesEnabled = YES;
+        _chartView.rightAxis.axisMinimum = 0.0;
+        _chartView.rightAxis.valueFormatter = [BarValueFormatter new];
+        _chartView.rightAxis.yOffset = 1;
+        //        _chartView.leftAxis.lee_theme.LeeConfigSelectorAndIdentifier(@selector(setLabelTextColor:), common_font_color_8);
+        [_chartView.rightAxis setLabelTextColor:[UIColor grayColor]];
+        [_chartView animateWithYAxisDuration:1.0f];
+    }
+    return _chartView;
+}
+- (BarChartData *)sethBarData {
+    NSMutableArray *yVals = [[NSMutableArray alloc] init];
+    
+    for (int i = 1; i <= 10; i++) {
+        [yVals addObject:[[BarChartDataEntry alloc] initWithX:i yValues:@[@(5), @(2), @(5), @(8)]]];
+    }
+    
+    BarChartDataSet *set1 = nil;
+    set1 = [[BarChartDataSet alloc] initWithValues:yVals label:@""];
+    
+    set1.colors = @[[UIColor greenColor],[UIColor blueColor],[UIColor orangeColor],[UIColor yellowColor]];
+    set1.stackLabels = @[@"高活跃度", @"中活跃度", @"低活跃度", @"无数据"];
+    set1.axisDependency = AxisDependencyRight;
+    set1.valueFormatter = [BarValueFormatter new];
+    
+    BarChartData *data = [[BarChartData alloc] initWithDataSet:set1];
+    [data setValueFont:[UIFont systemFontOfSize:10.f]];
+    data.barWidth = 0.8;
+    
+    _chartView.xAxis.labelCount = yVals.count;
+    // _chartView.fitBars = YES;
+    return data;
+}
+
+#pragma mark 折线+柱状混合图
 
 
 - (void)chartValueSelected:(ChartViewBase * _Nonnull)chartView entry:(ChartDataEntry * _Nonnull)entry highlight:(ChartHighlight * _Nonnull)highlight {

@@ -1,5 +1,9 @@
 //
 //  ____UITests.m
+//  无限滚动UITests
+//
+//  Created by caoting on 15/11/10.
+//  Copyright © 2015年 admin. All rights reserved.
 //
 
 #import <XCTest/XCTest.h>
