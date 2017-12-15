@@ -23,6 +23,7 @@
 @property (nonatomic) ScatterChartView *scatterView;
 @property (nonatomic) BubbleChartView *bubbleView;
 @property (nonatomic) HorizontalBarChartView *chartView;
+@property (nonatomic) CombinedChartView *combinedChartView;
 @property (nonatomic) UILabel * markY;
 @end
 
@@ -67,7 +68,8 @@
     [sv addSubview:self.chartView];
     self.chartView.data = [self sethBarData];
     //折线+柱状图
-    
+    [sv addSubview:self.combinedChartView];
+    self.combinedChartView.data = [self setCombineData];
 }
 
 - (void)changeUpdate{
@@ -550,8 +552,8 @@
         _bubbleView.highlightPerDragEnabled = NO;
         
         //交互设置
-        _bubbleView.scaleYEnabled = YES; //取消Y轴缩放
-        _bubbleView.scaleXEnabled = YES;
+        _bubbleView.scaleYEnabled = NO; //取消Y轴缩放
+        _bubbleView.scaleXEnabled = NO;
         _bubbleView.doubleTapToZoomEnabled = NO; //取消双击缩放
         _bubbleView.dragEnabled = NO; //启用拖拽图表
         _bubbleView.dragDecelerationEnabled = YES; //拖拽后是否有惯性效果
@@ -560,7 +562,7 @@
         //X轴样式
         ChartXAxis *xAxis = _bubbleView.xAxis;
         xAxis.axisLineWidth = 1; //设置X轴线宽
-        xAxis.axisMinimum = 0.5;
+        xAxis.axisMinimum = -0.5;
         xAxis.granularityEnabled = YES; //设置重复的值不显示
         xAxis.granularity = 1;
         //xAxis.labelCount = 5; //labeld 的个数
@@ -570,7 +572,7 @@
         xAxis.labelFont = [UIFont systemFontOfSize:10.0];
         //xAxis.lee_theme.LeeConfigSelectorAndIdentifier(@selector(setLabelTextColor:), common_font_color_8);
         [xAxis setLabelTextColor:[UIColor grayColor]];
-
+        
         //Y轴样式
         _bubbleView.rightAxis.enabled = NO; //不绘制右边轴
         ChartYAxis *leftAxis = _bubbleView.leftAxis; //获取左边Y轴
@@ -580,7 +582,7 @@
         //leftAxis.axisMaxValue = 105;//设置Y轴的最大值
         leftAxis.inverted = NO; //是否将Y轴进行上下翻转
         leftAxis.axisLineWidth = 0.5; //Y轴线宽
-        leftAxis.axisMinimum = 0.5; //Y轴最小值从原点开始
+        leftAxis.axisMinimum = -0.5; //Y轴最小值从原点开始
         //leftAxis.
         //leftAxis.lee_theme.LeeConfigSelectorAndIdentifier(@selector(setLabelTextColor:), common_font_color_8);
         [leftAxis setLabelTextColor:[UIColor grayColor]];
@@ -612,6 +614,11 @@
     BubbleChartData *data = [[BubbleChartData alloc] initWithDataSet:set];
     [data setValueTextColor:[UIColor whiteColor]];
     [data setValueFont:[UIFont fontWithName:@"HelveticaNeue-Light" size:10.f]]; //文字字体
+    
+    _bubbleView.xAxis.labelCount = 5;
+    _bubbleView.leftAxis.labelCount = 5;
+    _bubbleView.xAxis.axisMaximum = 5 + 1;
+    _bubbleView.leftAxis.axisMaximum = 5 + 1;
     
     return data;
 }
@@ -688,7 +695,94 @@
 }
 
 #pragma mark 折线+柱状混合图
+-(CombinedChartView *)combinedChartView{
+    if (!_combinedChartView) {
+        _combinedChartView = [[CombinedChartView alloc]initWithFrame:CGRectMake(0, 2450, screenWidth, 300)];
+        _combinedChartView.noDataText = @"";
+        _combinedChartView.delegate = self;
+        _combinedChartView.legend.xEntrySpace = 15;
+        _combinedChartView.legend.position = ChartLegendPositionBelowChartCenter;
+        _combinedChartView.legend.enabled = YES;
+        _combinedChartView.chartDescription.enabled = NO;
+        _combinedChartView.dragEnabled = NO;
+        _combinedChartView.drawValueAboveBarEnabled = YES;
+        
+        _combinedChartView.xAxis.axisMinimum = -0.5;
+        _combinedChartView.xAxis.valueFormatter = [BarValueFormatter new];
+        _combinedChartView.xAxis.drawGridLinesEnabled = NO;
+        _combinedChartView.xAxis.drawAxisLineEnabled = NO;
+        _combinedChartView.xAxis.centerAxisLabelsEnabled = NO;
+        _combinedChartView.xAxis.wordWrapEnabled = NO;
+        _combinedChartView.xAxis.labelPosition = XAxisLabelPositionBottom;
+        
+        _combinedChartView.leftAxis.valueFormatter = [BarValueFormatter new];
+        _combinedChartView.leftAxis.axisMinimum = 0;
+        
+        _combinedChartView.rightAxis.enabled = YES;
+        _combinedChartView.rightAxis.drawGridLinesEnabled = NO;
+        _combinedChartView.rightAxis.drawAxisLineEnabled = YES;
+        _combinedChartView.rightAxis.valueFormatter = [BarValueFormatter new];
+        _combinedChartView.rightAxis.axisMinimum = 0;
+        
+        _combinedChartView.extraLeftOffset = 0;
+        _combinedChartView.extraBottomOffset = 0;
+        _combinedChartView.extraRightOffset = 0;
+    }
+    return _combinedChartView;
+}
+- (CombinedChartData *)setCombineData{
+    
+    NSMutableArray *barArr = [NSMutableArray array];
+    NSMutableArray *linArr = [NSMutableArray array];
+    
+    for (int i = 0; i < 10; i++) {
+        
+        BarChartDataEntry *entry = [[BarChartDataEntry alloc] initWithX:i y:arc4random()%9];
+        [barArr addObject:entry];
+        ChartDataEntry *lineEntry = [[ChartDataEntry alloc] initWithX:i y:arc4random()%9];
+        [linArr addObject:lineEntry];
+    }
+    
+    BarChartDataSet *barSet = [[BarChartDataSet alloc] initWithValues:barArr label:@"每周采集量"];
+    barSet.drawValuesEnabled = YES; //是否在柱形图上面显示数值
+    barSet.axisDependency = AxisDependencyLeft;
+    barSet.valueFormatter = [BarValueFormatter new];
+    barSet.colors = @[[UIColor orangeColor]];
+    BarChartData *barData = [[BarChartData alloc] initWithDataSet:barSet];
+    
+    CombinedChartData *combinedData = [CombinedChartData new];
+    combinedData.barData = barData;
+    barData.barWidth = 0.5;
+    
+    LineChartDataSet *lineSet = [[LineChartDataSet alloc] initWithValues:linArr label:@"累计总量"];
+    lineSet.drawValuesEnabled = YES;
+    
+    lineSet.axisDependency = AxisDependencyRight;
+    lineSet.drawCirclesEnabled = YES;
+    lineSet.circleRadius = 2.5;
+    lineSet.circleColors = @[[UIColor greenColor]];
+    lineSet.lineWidth = 2;
+    lineSet.valueFormatter = [BarValueFormatter new];
+    lineSet.colors = @[[UIColor blackColor]];
+    LineChartData *lineData = [[LineChartData alloc] initWithDataSet:lineSet];
+    combinedData.lineData = lineData;
+    
+    _combinedChartView.xAxis.labelCount = barArr.count;
+    _combinedChartView.xAxis.axisMaximum = barArr.count;
+    _combinedChartView.leftAxis.labelCount = barArr.count;
+    _combinedChartView.leftAxis.forceLabelsEnabled = YES;
+    _combinedChartView.leftAxis.axisMaxValue = 10;
+    _combinedChartView.rightAxis.labelCount = linArr.count;
+    _combinedChartView.rightAxis.axisMaxValue = 10;
+    
+    [_combinedChartView animateWithYAxisDuration:0.0f];
+    
+    
+    return combinedData;
+}
 
+
+#pragma mark delegate
 
 - (void)chartValueSelected:(ChartViewBase * _Nonnull)chartView entry:(ChartDataEntry * _Nonnull)entry highlight:(ChartHighlight * _Nonnull)highlight {
     
